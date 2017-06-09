@@ -120,13 +120,13 @@ public class LeshanServer implements LwM2mServer {
      * @param x509CertChain the server X509 certificate (will be used for RPK too, in this case no need to set public
      *        key).
      * @param trustedCertificates the trusted certificates used to authenticate client certificates.
-     * @param networkConfig the CoAP {@link NetworkConfig}.
+     * @param coapConfig the CoAP {@link NetworkConfig}.
      */
     public LeshanServer(InetSocketAddress localAddress, InetSocketAddress localSecureAddress,
             CaliforniumRegistrationStore registrationStore, SecurityStore securityStore, Authorizer authorizer,
             LwM2mModelProvider modelProvider, LwM2mNodeEncoder encoder, LwM2mNodeDecoder decoder, PublicKey publicKey,
             PrivateKey privateKey, X509Certificate[] x509CertChain, Certificate[] trustedCertificates,
-            NetworkConfig networkConfig) {
+            NetworkConfig coapConfig) {
         Validate.notNull(localAddress, "IP address cannot be null");
         Validate.notNull(localSecureAddress, "Secure IP address cannot be null");
         Validate.notNull(registrationStore, "registration store cannot be null");
@@ -134,7 +134,7 @@ public class LeshanServer implements LwM2mServer {
         Validate.notNull(modelProvider, "modelProvider cannot be null");
         Validate.notNull(encoder, "encoder cannot be null");
         Validate.notNull(decoder, "decoder cannot be null");
-        Validate.notNull(networkConfig, "networkConfig cannot be null");
+        Validate.notNull(coapConfig, "coapConfig cannot be null");
 
         // Init services and stores
         this.registrationStore = registrationStore;
@@ -165,7 +165,7 @@ public class LeshanServer implements LwM2mServer {
         Set<Endpoint> endpoints = new HashSet<>();
 
         // default endpoint
-        coapServer = new CoapServer(networkConfig) {
+        coapServer = new CoapServer(coapConfig) {
             @Override
             protected Resource createRoot() {
                 return new RootResource();
@@ -173,10 +173,10 @@ public class LeshanServer implements LwM2mServer {
         };
 
         // exchange store for non-secure endpoint
-        InMemoryMessageExchangeStore nsExchangeStore = new InMemoryMessageExchangeStore(networkConfig);
-        nsExchangeStore.setMessageIdProvider(new SimpleMessageIdProvider(networkConfig));
+        InMemoryMessageExchangeStore nsExchangeStore = new InMemoryMessageExchangeStore(coapConfig);
+        nsExchangeStore.setMessageIdProvider(new SimpleMessageIdProvider(coapConfig));
 
-        nonSecureEndpoint = new CoapEndpoint(createUDPConnector(localAddress, networkConfig), networkConfig,
+        nonSecureEndpoint = new CoapEndpoint(createUDPConnector(localAddress, coapConfig), coapConfig,
                 this.observationService.getObservationStore(), nsExchangeStore);
         nonSecureEndpoint.addNotificationListener(observationService);
         observationService.setNonSecureEndpoint(nonSecureEndpoint);
@@ -189,8 +189,8 @@ public class LeshanServer implements LwM2mServer {
             builder.setPskStore(new LwM2mPskStore(this.securityStore, this.registrationService.getStore()));
 
             // synchronize network configuration and DTLS configuration
-            builder.setMaxConnections(networkConfig.getInt(Keys.MAX_ACTIVE_PEERS));
-            builder.setStaleConnectionThreshold(networkConfig.getLong(Keys.MAX_PEER_INACTIVITY_PERIOD));
+            builder.setMaxConnections(coapConfig.getInt(Keys.MAX_ACTIVE_PEERS));
+            builder.setStaleConnectionThreshold(coapConfig.getLong(Keys.MAX_PEER_INACTIVITY_PERIOD));
 
             // if in raw key mode and not in X.509 set the raw keys
             if (x509CertChain == null && privateKey != null && publicKey != null) {
@@ -206,10 +206,10 @@ public class LeshanServer implements LwM2mServer {
             }
 
             // exchange store for secure endpoint
-            InMemoryMessageExchangeStore sExchangeStore = new InMemoryMessageExchangeStore(networkConfig);
-            sExchangeStore.setMessageIdProvider(new SimpleMessageIdProvider(networkConfig));
+            InMemoryMessageExchangeStore sExchangeStore = new InMemoryMessageExchangeStore(coapConfig);
+            sExchangeStore.setMessageIdProvider(new SimpleMessageIdProvider(coapConfig));
 
-            secureEndpoint = new CoapEndpoint(new DTLSConnector(builder.build()), networkConfig,
+            secureEndpoint = new CoapEndpoint(new DTLSConnector(builder.build()), coapConfig,
                     this.observationService.getObservationStore(), sExchangeStore);
             secureEndpoint.addNotificationListener(observationService);
             observationService.setSecureEndpoint(secureEndpoint);
